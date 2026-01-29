@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -14,16 +15,13 @@ export default function Dashboard() {
       
       {/* Top Navigation / Header */}
       <View style={styles.header}>
-        <View>
+        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
+          <Feather name="menu" size={24} color="#111827" />
+        </TouchableOpacity>
+        <View style={styles.headerInfo}>
           <Text style={styles.greeting}>Halo, Pemilik Toko 👋</Text>
           <Text style={styles.shopName}>Nadi Coffee & Eatery</Text>
         </View>
-        <TouchableOpacity style={styles.profileButton}>
-          <Image 
-            source={{ uri: 'https://ui-avatars.com/api/?name=Owner&background=EEF2FF&color=4F46E5' }} 
-            style={styles.avatar} 
-          />
-        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -202,18 +200,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingVertical: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
+  menuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  headerInfo: {
+    flex: 1,
+    marginLeft: 16,
+  },
   greeting: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   shopName: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: '#111827',
   },
@@ -222,6 +234,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#E0E7FF',
     borderRadius: 24,
+    marginLeft: 12,
   },
   avatar: {
     width: 40,
