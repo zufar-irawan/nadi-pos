@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialIcons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
   const [isEditing, setIsEditing] = useState(false);
@@ -13,49 +13,49 @@ export default function ProfileScreen() {
   const [address, setAddress] = useState('Jl. Kenangan No. 123, Jakarta');
 
   const menuItems = [
-    { 
-      icon: <MaterialIcons name="dashboard" size={24} color="#9CA3AF" />, 
+    {
+      icon: <MaterialIcons name="dashboard" size={24} color="#9CA3AF" />,
       activeIcon: <MaterialIcons name="dashboard" size={24} color="#fff" />,
-      label: 'Dashboard', 
+      label: 'Dashboard',
       route: '/dashboard',
-      active: false 
+      active: false
     },
-    { 
-      icon: <Feather name="package" size={24} color="#9CA3AF" />, 
+    {
+      icon: <Feather name="package" size={24} color="#9CA3AF" />,
       activeIcon: <Feather name="package" size={24} color="#fff" />,
-      label: 'Persediaan', 
+      label: 'Persediaan',
       route: '/inventory',
-      active: false 
+      active: false
     },
-    { 
-      icon: <Feather name="shopping-cart" size={24} color="#9CA3AF" />, 
+    {
+      icon: <Feather name="shopping-cart" size={24} color="#9CA3AF" />,
       activeIcon: <Feather name="shopping-cart" size={24} color="#fff" />,
-      label: 'Kasir', 
+      label: 'Kasir',
       route: '/pos',
-      active: false 
+      active: false
     },
-    { 
-      icon: <MaterialIcons name="history" size={24} color="#9CA3AF" />, 
+    {
+      icon: <MaterialIcons name="history" size={24} color="#9CA3AF" />,
       activeIcon: <MaterialIcons name="history" size={24} color="#fff" />,
-      label: 'Riwayat Penjualan', 
+      label: 'Riwayat Penjualan',
       route: '/history',
-      active: false 
+      active: false
     },
-    { 
-      icon: <Feather name="file-text" size={24} color="#9CA3AF" />, 
+    {
+      icon: <Feather name="file-text" size={24} color="#9CA3AF" />,
       activeIcon: <Feather name="file-text" size={24} color="#fff" />,
-      label: 'Laporan', 
+      label: 'Laporan',
       route: '/reports',
-      active: false 
+      active: false
     },
   ];
 
   const handleNavigation = (route: string) => {
     if (route === '/dashboard') {
-      router.back(); // Or router.push('/dashboard') depending on stack behavior
+      router.dismissAll();
+      router.replace('/dashboard');
     } else {
-      // For now, just log or do nothing if routes don't exist
-      console.log('Navigate to:', route);
+      router.push(route as any);
     }
   };
 
@@ -67,7 +67,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
@@ -78,12 +78,12 @@ export default function ProfileScreen() {
             <Text style={styles.saveText}>Simpan</Text>
           </TouchableOpacity>
         ) : (
-          <View style={{ width: 40 }} /> 
+          <View style={{ width: 40 }} />
         )}
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        
+
         {/* Business Profile Card */}
         <View style={styles.profileCard}>
           <View style={styles.storeIconContainer}>
@@ -130,7 +130,7 @@ export default function ProfileScreen() {
               placeholder="Contoh: 08123456789"
               keyboardType="phone-pad"
             />
-            
+
             <Text style={styles.inputLabel}>Alamat Toko</Text>
             <TextInput
               style={[styles.formInput, styles.textArea]}

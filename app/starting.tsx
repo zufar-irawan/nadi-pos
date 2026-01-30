@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import React from 'react';
+import { Dimensions, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -17,11 +17,11 @@ const WelcomeScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Hero Image Section */}
       <View style={styles.heroContainer}>
-        <Image 
-          source={require('../assets/images/starting.png')} 
+        <Image
+          source={require('../assets/images/starting.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -33,20 +33,20 @@ const WelcomeScreen = () => {
           Selamat Datang!{'\n'}Masuk atau Daftar
         </Text>
         <Text style={styles.description}>
-          Buat akun dalam satu menit untuk memulai mengelola bisnis anda dan mendigitalisasikan proses kasir
+          Buat akun untuk mulai mengelola dan mendigitalisasikan proses kasir
         </Text>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.buttonSection}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.primaryButton}
           onPress={handleRegister}
         >
           <Text style={styles.primaryButtonText}>Daftar</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.secondaryButton}
           onPress={handleLogin}
         >
@@ -122,7 +122,8 @@ const styles = StyleSheet.create({
   buttonSection: {
     paddingHorizontal: 32,
     paddingBottom: 48,
-    gap: 16,
+    paddingTop: 12,
+    gap: 10,
   },
   primaryButton: {
     backgroundColor: '#00CCEB',
