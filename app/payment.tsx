@@ -22,9 +22,9 @@ export default function PaymentScreen() {
     const [amountTendered, setAmountTendered] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    const handlePay = () => {
+    const handlePay = async () => {
         // Add to Order History
-        addOrder({
+        await addOrder({
             id: orderId,
             items: [...items],
             totalAmount: totalPrice,
@@ -33,7 +33,7 @@ export default function PaymentScreen() {
         });
 
         // Proceed
-        clearCart();
+        await clearCart();
         router.replace('/payment-success');
     };
 

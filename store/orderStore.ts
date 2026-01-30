@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getDB } from '../services/database';
 import { Product } from './inventoryStore';
 
 export interface OrderItem {
@@ -16,43 +17,110 @@ export interface Order {
 
 interface OrderState {
     orders: Order[];
-    addOrder: (order: Order) => void;
-    getOrdersByMonth: (month: number, year: number) => Order[];
+    isLoading: boolean;
+    fetchOrders: () => Promise<void>;
+    addOrder: (order: Order) => Promise<void>;
+    getOrdersByMonth: (month: number, year: number) => Order[]; // Still useful for UI filtering if all loaded, or can be async
     getOrdersByRange: (startDate: Date, endDate: Date) => Order[];
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
-    orders: [
-        // Today (Jan 29, 2026)
-        {
-            id: `ORD-${Date.now()}`,
-            items: [{ product: { id: '1', name: 'Kopi', price: 18000, stock: 10 }, quantity: 2 }],
-            totalAmount: 36000,
-            paymentMethod: 'Cash',
-            date: new Date().toISOString()
-        },
-        // Yesterday
-        {
-            id: 'ORD-YESTERDAY',
-            items: [],
-            totalAmount: 125000,
-            paymentMethod: 'QRIS',
-            date: new Date(Date.now() - 86400000).toISOString()
-        },
-        // Week 1 Jan 2026
-        { id: 'ORD-JAN05', items: [], totalAmount: 450000, paymentMethod: 'Cash', date: new Date(2026, 0, 5).toISOString() },
-        // Week 2 Jan 2026
-        { id: 'ORD-JAN12', items: [], totalAmount: 320000, paymentMethod: 'Debit', date: new Date(2026, 0, 12).toISOString() },
-        // Week 3 Jan 2026
-        { id: 'ORD-JAN19', items: [], totalAmount: 550000, paymentMethod: 'QRIS', date: new Date(2026, 0, 19).toISOString() },
-        { id: 'ORD-JAN21', items: [], totalAmount: 150000, paymentMethod: 'Cash', date: new Date(2026, 0, 21).toISOString() },
-        // Week 4 Jan 2026
-        { id: 'ORD-JAN26', items: [], totalAmount: 280000, paymentMethod: 'Cash', date: new Date(2026, 0, 26).toISOString() },
-        { id: 'ORD-JAN28', items: [], totalAmount: 180000, paymentMethod: 'QRIS', date: new Date(2026, 0, 28).toISOString() },
-    ],
-    addOrder: (order) => set((state) => ({
-        orders: [order, ...state.orders]
-    })),
+    orders: [],
+    isLoading: false,
+
+    fetchOrders: async () => {
+        set({ isLoading: true });
+        try {
+            const db = await getDB();
+
+            // Get transactions
+            const transactions = await db.getAllAsync<any>('SELECT * FROM transactions_local ORDER BY created_at DESC');
+
+            // For each transaction, we technically need items and payment method.
+            // Be careful with N+1 queries here.
+
+            const orders: Order[] = [];
+
+            for (const t of transactions) {
+                // Get items
+                const itemsResult = await db.getAllAsync<any>(`
+                    SELECT ti.qty, ti.price, p.id, p.name, p.price as p_price
+                    FROM transaction_items_local ti
+                    JOIN products p ON ti.product_id = p.id
+                    WHERE ti.transaction_id = ?
+                `, [t.id]);
+
+                const items: OrderItem[] = itemsResult.map(i => ({
+                    quantity: i.qty,
+                    product: {
+                        id: i.id,
+                        name: i.name,
+                        price: i.p_price,
+                        stock: 0
+                    }
+                }));
+
+                // Get payment method (assuming one successful attempt or just taking the last one)
+                const payment = await db.getFirstAsync<any>(`
+                    SELECT method FROM payment_attempts_local WHERE transaction_id = ? LIMIT 1
+                `, [t.id]);
+
+                orders.push({
+                    id: t.id,
+                    items: items,
+                    totalAmount: t.total,
+                    paymentMethod: payment ? payment.method : 'Unknown',
+                    date: t.created_at
+                });
+            }
+
+            set({ orders });
+
+        } catch (error) {
+            console.error('Failed to fetch orders:', error);
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+
+    addOrder: async (order) => {
+        try {
+            const db = await getDB();
+            await db.withTransactionAsync(async () => {
+                // Insert Transaction
+                await db.runAsync(
+                    'INSERT INTO transactions_local (id, subtotal, tax, discount, total, status, created_at, sync_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [order.id, order.totalAmount, 0, 0, order.totalAmount, 'completed', order.date, 'pending']
+                );
+
+                // Insert Items
+                for (const item of order.items) {
+                    const itemId = Math.random().toString(36).substr(2, 9);
+                    await db.runAsync(
+                        'INSERT INTO transaction_items_local (id, transaction_id, product_id, qty, price) VALUES (?, ?, ?, ?, ?)',
+                        [itemId, order.id, item.product.id, item.quantity, item.product.price]
+                    );
+                }
+
+                // Insert Payment Attempt (Successful one)
+                const paymentId = Math.random().toString(36).substr(2, 9);
+                await db.runAsync(
+                    'INSERT INTO payment_attempts_local (id, transaction_id, method, status, sync_status) VALUES (?, ?, ?, ?, ?)',
+                    [paymentId, order.id, order.paymentMethod, 'success', 'pending']
+                );
+            });
+
+            // Update local state
+            set((state) => ({
+                orders: [order, ...state.orders]
+            }));
+        } catch (error) {
+            console.error('Failed to add order:', error);
+        }
+    },
+
+    // These getters filter from the currently loaded 'orders'. 
+    // If 'orders' contains all history, this works. If we implement pagination later, these need to be async DB queries.
     getOrdersByMonth: (month, year) => {
         const { orders } = get();
         return orders.filter(order => {
@@ -71,3 +139,4 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         });
     }
 }));
+

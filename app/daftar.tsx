@@ -1,74 +1,126 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../store/authStore';
 
 const { width } = Dimensions.get('window');
 
 const RegisterScreen = () => {
+  const { register } = useAuthStore();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [isChecked, setIsChecked] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
 
-  const handleRegister = () => {
-    // In a real app, you would handle registration here
-    router.replace('/dashboard');
+  const handleRegister = async () => {
+    if (!name || !phone || !pin) {
+      Alert.alert('Error', 'Mohon lengkapi semua data');
+      return;
+    }
+
+    if (pin.length < 6) {
+      Alert.alert('Error', 'PIN harus 6 digit');
+      return;
+    }
+
+    if (pin !== confirmPin) {
+      Alert.alert('Error', 'PIN tidak cocok');
+      return;
+    }
+
+    if (!isChecked) {
+      Alert.alert('Error', 'Anda harus menyetujui ketentuan layanan');
+      return;
+    }
+
+    try {
+      await register(name, phone, pin);
+      // Navigate to dashboard or setup success
+      router.replace('/dashboard');
+    } catch (error) {
+      Alert.alert('Gagal Daftar', 'Terjadi kesalahan saat mendaftar.');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Header Section */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-             <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerDecor} />
-          <Text style={styles.headerTitle}>Daftarkan{'\n'}Bisnis Anda</Text>
+          <Text style={styles.headerTitle}>Daftar Akun{'\n'}Baru</Text>
           <Text style={styles.headerSubtitle}>
-            Daftarkan akun anda untuk lanjut mengelola usaha anda
+            Masukkan nomor telepon dan buat PIN untuk keamanan
           </Text>
         </View>
 
         {/* Form Section */}
         <View style={styles.formContainer}>
           <View style={styles.formContent}>
-            
-            {/* Input Email */}
+
+            {/* Input Nama */}
             <TextInput
-              placeholder="Email"
+              placeholder="Nama Lengkap / Bisnis"
               placeholderTextColor="#9CA3AF"
               style={styles.input}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              value={name}
+              onChangeText={setName}
             />
 
-            {/* Input Password */}
+            {/* Input Phone */}
+            <TextInput
+              placeholder="Nomor Telepon (misal: 08123...)"
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+            />
+
+            {/* Input PIN */}
             <View style={styles.passwordContainer}>
               <TextInput
-                placeholder="Password"
+                placeholder="Buat PIN Baru (6 Angka)"
                 placeholderTextColor="#9CA3AF"
                 style={styles.passwordInput}
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showPin}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={pin}
+                onChangeText={setPin}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#9CA3AF" />
+              <TouchableOpacity onPress={() => setShowPin(!showPin)}>
+                <Feather name={showPin ? "eye" : "eye-off"} size={20} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
 
-            {/* Input Nama Bisnis */}
-            <TextInput
-              placeholder="Nama Bisnis"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-            />
+            {/* Confirm PIN */}
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Konfirmasi PIN"
+                placeholderTextColor="#9CA3AF"
+                style={styles.passwordInput}
+                secureTextEntry={!showPin}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={confirmPin}
+                onChangeText={setConfirmPin}
+              />
+            </View>
 
             {/* Checkbox Persetujuan */}
-            <TouchableOpacity 
-              style={styles.checkboxContainer} 
+            <TouchableOpacity
+              style={styles.checkboxContainer}
               onPress={() => setIsChecked(!isChecked)}
             >
               <View style={[styles.checkbox, isChecked && styles.checkedCheckbox]}>
@@ -87,7 +139,7 @@ const RegisterScreen = () => {
             {/* Link Masuk */}
             <TouchableOpacity onPress={() => router.push('/masuk')}>
               <Text style={styles.footerText}>
-                Sudah punya akun? <Text style={styles.linkText}>Masuk disini</Text>
+                Sudah terdaftar di perangkat ini? <Text style={styles.linkText}>Masuk disini</Text>
               </Text>
             </TouchableOpacity>
           </View>

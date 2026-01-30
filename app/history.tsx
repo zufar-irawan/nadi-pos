@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOrderStore } from '../store/orderStore';
@@ -14,11 +14,15 @@ const months = [
 ];
 
 export default function HistoryScreen() {
-    const { getOrdersByMonth } = useOrderStore();
+    const { getOrdersByMonth, fetchOrders } = useOrderStore();
 
     const currentDate = new Date();
     const [selectedMonthIndex, setSelectedMonthIndex] = useState(currentDate.getMonth());
     const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+
+    useEffect(() => {
+        fetchOrders();
+    }, []);
 
     const orders = getOrdersByMonth(selectedMonthIndex, selectedYear);
 

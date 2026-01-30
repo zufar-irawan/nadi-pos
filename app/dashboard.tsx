@@ -1,53 +1,113 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, Image, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../store/authStore';
+import { useInventoryStore } from '../store/inventoryStore';
+import { useOrderStore } from '../store/orderStore';
+import { useShopStore } from '../store/shopStore';
 
 const { width } = Dimensions.get('window');
 
 export default function Dashboard() {
+  const { userName } = useAuthStore();
+  const { products, fetchProducts } = useInventoryStore();
+  const { orders, fetchOrders } = useOrderStore();
+  const { profile, fetchProfile: fetchShopProfile } = useShopStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    await Promise.all([fetchProducts(), fetchOrders(), fetchShopProfile()]);
+  }
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
+  // --- Statistics Calculation ---
+  const today = new Date();
+  const todayDateStr = today.toDateString();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayDateStr = yesterday.toDateString();
+
+  const todayOrders = orders.filter(o => new Date(o.date).toDateString() === todayDateStr);
+  const yesterdayOrders = orders.filter(o => new Date(o.date).toDateString() === yesterdayDateStr);
+
+  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const yesterdayRevenue = yesterdayOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const todayCount = todayOrders.length;
+  const yesterdayCount = yesterdayOrders.length;
+
+  const todayItemsSold = todayOrders.reduce((sum, o) => sum + o.items.reduce((acc, i) => acc + i.quantity, 0), 0);
+
+  // Revenue Trend
+  let revTrend = 0;
+  if (yesterdayRevenue > 0) {
+    revTrend = ((todayRevenue - yesterdayRevenue) / yesterdayRevenue) * 100;
+  } else if (todayRevenue > 0) {
+    revTrend = 100;
+  }
+
+  // Order Trend
+  const orderDiff = todayCount - yesterdayCount;
+
+  // Inventory Logic
+  const lowStockProducts = products
+    .filter(p => p.stock <= 5)
+    .sort((a, b) => a.stock - b.stock)
+    .slice(0, 3);
+
+  const lowStockCount = products.filter(p => p.stock <= 5).length;
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Top Navigation / Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/profile')}>
           <Feather name="menu" size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.greeting}>Halo, Pemilik Toko 👋</Text>
-          <Text style={styles.shopName}>Nadi Coffee & Eatery</Text>
+          <Text style={styles.greeting}>Halo, {userName || 'Pemilik Toko'} 👋</Text>
+          <Text style={styles.shopName}>{profile.name}</Text>
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        
+
         {/* Insight Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Insight Bisnis</Text>
-            <TouchableOpacity>
-               <Text style={styles.seeAllText}>Detail {'>'}</Text>
+            <TouchableOpacity onPress={() => router.push('/reports')}>
+              <Text style={styles.seeAllText}>Detail {'>'}</Text>
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.insightScroll}>
             <View style={[styles.insightCard, styles.cardPrimary]}>
               <View style={styles.cardIconBg}>
                 <MaterialCommunityIcons name="cash-multiple" size={24} color="#fff" />
               </View>
               <Text style={styles.cardLabelLight}>Omzet Hari Ini</Text>
-              <Text style={styles.cardValueLight}>Rp 2.540.000</Text>
+              <Text style={styles.cardValueLight}>Rp{todayRevenue.toLocaleString('id-ID')}</Text>
               <View style={styles.trendContainer}>
-                <Ionicons name="arrow-up" size={14} color="#A7F3D0" />
-                <Text style={styles.trendTextPositive}> +12% dari kemarin</Text>
+                <Ionicons name={revTrend >= 0 ? "arrow-up" : "arrow-down"} size={14} color={revTrend >= 0 ? "#A7F3D0" : "#FCA5A5"} />
+                <Text style={revTrend >= 0 ? styles.trendTextPositive : styles.trendTextNegative}> {Math.abs(revTrend).toFixed(1)}% dari kemarin</Text>
               </View>
             </View>
 
@@ -56,10 +116,10 @@ export default function Dashboard() {
                 <MaterialCommunityIcons name="receipt" size={24} color="#4F46E5" />
               </View>
               <Text style={styles.cardLabel}>Transaksi</Text>
-              <Text style={styles.cardValue}>48 Order</Text>
+              <Text style={styles.cardValue}>{todayCount} Order</Text>
               <View style={styles.trendContainer}>
-                <Ionicons name="arrow-up" size={14} color="#10B981" />
-                <Text style={styles.trendTextPositiveText}> +5 Order</Text>
+                <Ionicons name={orderDiff >= 0 ? "arrow-up" : "arrow-down"} size={14} color={orderDiff >= 0 ? "#10B981" : "#EF4444"} />
+                <Text style={orderDiff >= 0 ? styles.trendTextPositiveText : styles.trendTextNegativeText}> {orderDiff > 0 ? '+' : ''}{orderDiff} Order</Text>
               </View>
             </View>
 
@@ -68,8 +128,8 @@ export default function Dashboard() {
                 <MaterialCommunityIcons name="cube-outline" size={24} color="#F97316" />
               </View>
               <Text style={styles.cardLabel}>Terjual</Text>
-              <Text style={styles.cardValue}>152 Item</Text>
-               <View style={styles.trendContainer}>
+              <Text style={styles.cardValue}>{todayItemsSold} Item</Text>
+              <View style={styles.trendContainer}>
                 <Ionicons name="remove" size={14} color="#9CA3AF" />
                 <Text style={styles.trendTextNeutral}> Stabil</Text>
               </View>
@@ -81,28 +141,28 @@ export default function Dashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Akses Cepat</Text>
           <View style={styles.quickActionsGrid}>
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/pos')}>
               <View style={[styles.actionIcon, { backgroundColor: '#4F46E5' }]}>
                 <Ionicons name="calculator" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Kasir</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/add-product')}>
               <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
                 <Ionicons name="add-circle" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Tambah Produk</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionButton}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/inventory')}>
               <View style={[styles.actionIcon, { backgroundColor: '#F59E0B' }]}>
                 <MaterialCommunityIcons name="barcode-scan" size={28} color="#fff" />
               </View>
               <Text style={styles.actionText}>Scan Stok</Text>
             </TouchableOpacity>
-             
-            <TouchableOpacity style={styles.actionButton}>
+
+            <TouchableOpacity style={styles.actionButton} onPress={() => router.push('/history')}>
               <View style={[styles.actionIcon, { backgroundColor: '#EC4899' }]}>
                 <Ionicons name="people" size={28} color="#fff" />
               </View>
@@ -115,39 +175,34 @@ export default function Dashboard() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Inventori & Stok</Text>
-             <TouchableOpacity>
-               <Text style={styles.seeAllText}>Lihat Semua</Text>
+            <TouchableOpacity onPress={() => router.push('/inventory')}>
+              <Text style={styles.seeAllText}>Lihat Semua</Text>
             </TouchableOpacity>
           </View>
 
           {/* Low Stock Alert */}
-          <View style={styles.alertBox}>
-            <Ionicons name="warning" size={20} color="#B45309" />
-            <Text style={styles.alertText}>3 Produk stok menipis, segera restock!</Text>
-          </View>
+          {lowStockCount > 0 && (
+            <View style={styles.alertBox}>
+              <Ionicons name="warning" size={20} color="#B45309" />
+              <Text style={styles.alertText}>{lowStockCount} Produk stok menipis, segera restock!</Text>
+            </View>
+          )}
 
           <View style={styles.inventoryList}>
-             <InventoryItem 
-                name="Kopi Susu Gula Aren" 
-                stock={5} 
-                unit="Cup" 
-                status="low"
-                image="https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=100&h=100"
-             />
-             <InventoryItem 
-                name="Croissant Butter" 
-                stock={2} 
-                unit="Pcs" 
-                status="critical"
-                 image="https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=100&h=100"
-             />
-             <InventoryItem 
-                name="Americano Hot" 
-                stock={45} 
-                unit="Cup" 
-                status="good"
-                 image="https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=100&h=100"
-             />
+            {lowStockProducts.length === 0 ? (
+              <Text style={{ color: '#6B7280', fontStyle: 'italic', marginLeft: 4 }}>Stok aman semua</Text>
+            ) : (
+              lowStockProducts.map(item => (
+                <InventoryItem
+                  key={item.id}
+                  name={item.name}
+                  stock={item.stock}
+                  unit="Pcs"
+                  status={item.stock === 0 ? 'critical' : 'low'}
+                  image={item.image || 'https://via.placeholder.com/100'}
+                />
+              ))
+            )}
           </View>
         </View>
 
@@ -164,13 +219,13 @@ function InventoryItem({ name, stock, unit, status, image }: { name: string, sto
   };
 
   const getStatusBg = () => {
-     if (status === 'critical') return '#FEF2F2';
+    if (status === 'critical') return '#FEF2F2';
     if (status === 'low') return '#FFFBEB';
     return '#ECFDF5';
   }
 
   const getStatusText = () => {
-      if (status === 'critical') return 'Kritis';
+    if (status === 'critical') return 'Kritis';
     if (status === 'low') return 'Menipis';
     return 'Aman';
   }
@@ -334,6 +389,16 @@ const styles = StyleSheet.create({
   trendTextNeutral: {
     fontSize: 12,
     color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  trendTextNegative: {
+    fontSize: 12,
+    color: '#FCA5A5',
+    fontWeight: '600',
+  },
+  trendTextNegativeText: {
+    fontSize: 12,
+    color: '#EF4444',
     fontWeight: '600',
   },
   quickActionsGrid: {

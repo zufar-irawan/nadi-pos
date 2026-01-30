@@ -1,16 +1,30 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useShopStore } from '../store/shopStore';
 
 export default function ProfileScreen() {
+  const { profile, fetchProfile, updateProfile } = useShopStore();
   const [isEditing, setIsEditing] = useState(false);
-  const [shopName, setShopName] = useState('Nadi Coffee & Eatery');
-  const [email, setEmail] = useState('owner@nadicoffee.com');
-  const [phone, setPhone] = useState('0812-3456-7890');
-  const [address, setAddress] = useState('Jl. Kenangan No. 123, Jakarta');
+
+  const [shopName, setShopName] = useState(profile.name);
+  const [email, setEmail] = useState(profile.email);
+  const [phone, setPhone] = useState(profile.phone);
+  const [address, setAddress] = useState(profile.address);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  useEffect(() => {
+    setShopName(profile.name);
+    setEmail(profile.email);
+    setPhone(profile.phone);
+    setAddress(profile.address);
+  }, [profile]);
 
   const menuItems = [
     {
@@ -59,9 +73,14 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    await updateProfile({
+      name: shopName,
+      email,
+      phone,
+      address
+    });
     setIsEditing(false);
-    // In a real app, you would save this to a database or local storage
   };
 
   return (

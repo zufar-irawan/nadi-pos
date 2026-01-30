@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useCartStore } from '../store/cartStore';
@@ -10,9 +10,14 @@ import { useInventoryStore } from '../store/inventoryStore';
 const { width } = Dimensions.get('window');
 
 export default function PosScreen() {
-    const { products } = useInventoryStore();
-    const { addToCart, getTotalItems } = useCartStore();
+    const { products, fetchProducts } = useInventoryStore();
+    const { addToCart, getTotalItems, initCart } = useCartStore();
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        fetchProducts();
+        initCart();
+    }, []);
 
     const totalItems = getTotalItems();
 

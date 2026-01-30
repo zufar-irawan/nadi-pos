@@ -1,60 +1,80 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import { Alert, Dimensions, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuthStore } from '../store/authStore';
 
 const { width } = Dimensions.get('window');
 
 const LoginScreen = () => {
-  const [showPassword, setShowPassword] = useState(false);
+  const { loginWithPin, isRegistered, userPhone } = useAuthStore();
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
 
-  const handleLogin = () => {
-    // In a real app, you would handle login here
-    router.replace('/dashboard');
+  const handleLogin = async () => {
+    if (!isRegistered) {
+      Alert.alert('Gagal Masuk', 'Tidak ada akun terdaftar di perangkat ini. Silakan daftar terlebih dahulu.');
+      return;
+    }
+
+    if (pin.length < 6) {
+      Alert.alert('Error', 'PIN harus 6 digit');
+      return;
+    }
+
+    const success = await loginWithPin(pin);
+    if (success) {
+      router.replace('/dashboard');
+    } else {
+      Alert.alert('Gagal', 'PIN Salah');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
+
         {/* Header Section */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-             <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerDecor} />
-          <Text style={styles.headerTitle}>Masuk ke{'\n'}Akun Anda</Text>
+          <Text style={styles.headerTitle}>Masuk ke{'\n'}POS</Text>
           <Text style={styles.headerSubtitle}>
-            Masuk ke akun anda untuk lanjut mengelola usaha anda
+            Masukkan PIN Anda untuk mengakses aplikasi
           </Text>
         </View>
 
         {/* Form Section */}
         <View style={styles.formContainer}>
           <View style={styles.formContent}>
-            
-            {/* Input Email */}
-            <TextInput
-              placeholder="Email"
-              placeholderTextColor="#9CA3AF"
-              style={styles.input}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
 
-            {/* Input Password */}
+            {/* Display Phone if available */}
+            {isRegistered && userPhone && (
+              <View style={styles.userInfo}>
+                <Text style={styles.welcomeText}>Selamat datang kembali,</Text>
+                <Text style={styles.phoneText}>{userPhone}</Text>
+              </View>
+            )}
+
+            {/* Input PIN */}
             <View style={styles.passwordContainer}>
               <TextInput
-                placeholder="Password"
+                placeholder="Masukkan PIN"
                 placeholderTextColor="#9CA3AF"
                 style={styles.passwordInput}
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showPin}
+                keyboardType="number-pad"
+                maxLength={6}
+                value={pin}
+                onChangeText={setPin}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#9CA3AF" />
+              <TouchableOpacity onPress={() => setShowPin(!showPin)}>
+                <Feather name={showPin ? "eye" : "eye-off"} size={20} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
 
@@ -62,6 +82,15 @@ const LoginScreen = () => {
             <TouchableOpacity style={styles.button} onPress={handleLogin}>
               <Text style={styles.buttonText}>Masuk</Text>
             </TouchableOpacity>
+
+            {!isRegistered && (
+              <View style={styles.warningContainer}>
+                <Ionicons name="alert-circle-outline" size={20} color="#F59E0B" />
+                <Text style={styles.warningText}>
+                  Akun tidak ditemukan di perangkat ini. Karena keamanan lokal, anda harus Mendaftar ulang jika ini perangkat baru.
+                </Text>
+              </View>
+            )}
 
             {/* Link Daftar */}
             <TouchableOpacity onPress={() => router.push('/daftar')}>
@@ -76,6 +105,7 @@ const LoginScreen = () => {
     </SafeAreaView>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -187,6 +217,35 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#00E676', // Bright green color from design
     fontWeight: '700',
+  },
+  userInfo: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  phoneText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  warningContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF3C7',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400E',
+    lineHeight: 18,
   },
 });
 

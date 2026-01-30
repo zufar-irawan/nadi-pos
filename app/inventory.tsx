@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInventoryStore } from '../store/inventoryStore';
@@ -9,8 +9,12 @@ import { useInventoryStore } from '../store/inventoryStore';
 const { width } = Dimensions.get('window');
 
 export default function InventoryScreen() {
-    const { products, deleteProduct, updateProduct } = useInventoryStore();
+    const { products, deleteProduct, updateProduct, fetchProducts } = useInventoryStore();
     const [searchQuery, setSearchQuery] = useState('');
+
+    useEffect(() => {
+        fetchProducts();
+    }, []);
 
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase())

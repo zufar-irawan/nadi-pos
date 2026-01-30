@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useOrderStore } from '../store/orderStore';
@@ -28,7 +28,11 @@ const formatCurrencyShort = (value: number) => {
 };
 
 export default function ReportsScreen() {
-    const { orders } = useOrderStore();
+    const { orders, fetchOrders } = useOrderStore();
+
+    useEffect(() => {
+        fetchOrders();
+    }, []);
 
     // -- Calculations --
     const now = new Date();

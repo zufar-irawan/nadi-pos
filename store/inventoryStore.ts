@@ -1,5 +1,6 @@
 // store/inventoryStore.ts
-import { useSyncExternalStore } from 'react';
+import { create } from 'zustand';
+import { getDB } from '../services/database';
 
 export interface Product {
     id: string;
@@ -7,80 +8,105 @@ export interface Product {
     price: number;
     stock: number;
     image?: string;
+    sync_status?: 'synced' | 'pending' | 'failed';
 }
 
-let products: Product[] = [
-    {
-        id: '1',
-        name: 'Kopi Susu Gula Aren',
-        price: 18000,
-        stock: 10,
-        image: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?auto=format&fit=crop&q=80&w=200&h=200',
-    },
-    {
-        id: '2',
-        name: 'Croissant Butter',
-        price: 25000,
-        stock: 5,
-        image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=200&h=200',
-    },
-    {
-        id: '3',
-        name: 'Americano Hot',
-        price: 15000,
-        stock: 45,
-        image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=200&h=200',
-    },
-    {
-        id: '4',
-        name: 'Latte Art',
-        price: 22000,
-        stock: 12,
-        image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&q=80&w=200&h=200',
-    },
-];
+interface InventoryState {
+    products: Product[];
+    isLoading: boolean;
+    fetchProducts: () => Promise<void>;
+    addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+    updateProduct: (id: string, updatedProduct: Partial<Product>) => Promise<void>;
+    deleteProduct: (id: string) => Promise<void>;
+}
 
-let listeners: Array<() => void> = [];
+export const useInventoryStore = create<InventoryState>((set, get) => ({
+    products: [],
+    isLoading: false,
+    fetchProducts: async () => {
+        set({ isLoading: true });
+        try {
+            const db = await getDB();
+            const result = await db.getAllAsync<any>(`
+                SELECT p.*, i.stock 
+                FROM products p
+                LEFT JOIN inventory_cache i ON p.id = i.product_id
+            `);
+            const products: Product[] = result.map(row => ({
+                id: row.id,
+                name: row.name,
+                price: row.price,
+                stock: row.stock || 0,
+                sync_status: row.sync_status as any,
+                // Note: Image is not in schema yet, handling gracefully if needed or added later
+            }));
+            set({ products });
+        } catch (error) {
+            console.error('Failed to fetch products:', error);
+        } finally {
+            set({ isLoading: false });
+        }
+    },
+    addProduct: async (product) => {
+        try {
+            const db = await getDB();
+            const newId = Math.random().toString(36).substr(2, 9); // Simple ID generation
+            const now = new Date().toISOString();
 
-const emitChange = () => {
-    for (let listener of listeners) {
-        listener();
-    }
-};
+            await db.withTransactionAsync(async () => {
+                await db.runAsync(
+                    'INSERT INTO products (id, name, price, updated_at, sync_status) VALUES (?, ?, ?, ?, ?)',
+                    [newId, product.name, product.price, now, 'pending']
+                );
+                await db.runAsync(
+                    'INSERT INTO inventory_cache (product_id, stock, updated_at) VALUES (?, ?, ?)',
+                    [newId, product.stock, now]
+                );
+            });
 
-const inventoryStore = {
-    addProduct: (product: Omit<Product, 'id'>) => {
-        products = [
-            ...products,
-            { ...product, id: Math.random().toString(36).substr(2, 9) },
-        ];
-        emitChange();
+            // Refresh list
+            await get().fetchProducts();
+        } catch (error) {
+            console.error('Failed to add product:', error);
+        }
     },
-    updateProduct: (id: string, updatedProduct: Partial<Product>) => {
-        products = products.map((p) =>
-            p.id === id ? { ...p, ...updatedProduct } : p
-        );
-        emitChange();
-    },
-    deleteProduct: (id: string) => {
-        products = products.filter((p) => p.id !== id);
-        emitChange();
-    },
-    getProducts: () => products,
-    subscribe: (listener: () => void) => {
-        listeners = [...listeners, listener];
-        return () => {
-            listeners = listeners.filter((l) => l !== listener);
-        };
-    },
-};
+    updateProduct: async (id, updatedProduct) => {
+        try {
+            const db = await getDB();
+            const now = new Date().toISOString();
 
-export const useInventoryStore = () => {
-    const products = useSyncExternalStore(inventoryStore.subscribe, inventoryStore.getProducts);
-    return {
-        products,
-        addProduct: inventoryStore.addProduct,
-        updateProduct: inventoryStore.updateProduct,
-        deleteProduct: inventoryStore.deleteProduct,
-    };
-};
+            await db.withTransactionAsync(async () => {
+                if (updatedProduct.name !== undefined || updatedProduct.price !== undefined) {
+                    await db.runAsync(
+                        'UPDATE products SET name = COALESCE(?, name), price = COALESCE(?, price), updated_at = ?, sync_status = ? WHERE id = ?',
+                        [updatedProduct.name ?? null, updatedProduct.price ?? null, now, 'pending', id]
+                    );
+                }
+
+                if (updatedProduct.stock !== undefined) {
+                    await db.runAsync(
+                        'INSERT OR REPLACE INTO inventory_cache (product_id, stock, updated_at) VALUES (?, ?, ?)',
+                        [id, updatedProduct.stock, now]
+                    );
+                }
+            });
+
+            await get().fetchProducts();
+        } catch (error) {
+            console.error('Failed to update product:', error);
+        }
+    },
+    deleteProduct: async (id) => {
+        try {
+            const db = await getDB();
+            await db.withTransactionAsync(async () => {
+                await db.runAsync('DELETE FROM inventory_cache WHERE product_id = ?', [id]);
+                await db.runAsync('DELETE FROM products WHERE id = ?', [id]);
+            });
+            await get().fetchProducts();
+        } catch (error) {
+            console.error('Failed to delete product:', error);
+        }
+    },
+}));
+
